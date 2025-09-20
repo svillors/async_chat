@@ -1,22 +1,44 @@
+import argparse
 import asyncio
 import datetime
 
 import aiofiles
 
 
-async def connect_chat():
-    reader, writer = await asyncio.open_connection('minechat.dvmn.org', 5000)
-    async with aiofiles.open('chat_messages.txt', 'a') as f:
-        await f.write(
-            f'{datetime.datetime.now().strftime("[%d.%m.%y %H:%M]")}'
-            + ' Connection established\n')
-        while True:
-            raw_line = await reader.readline()
-            line = raw_line.decode()
-            current_time = datetime.datetime.now().strftime('[%d.%m.%y %H:%M]')
-            print(current_time, line)
-            await f.write(f'{current_time} {line}')
+async def log(line, path):
+    if path is None:
+        return
+    async with aiofiles.open(path, 'a') as f:
+        await f.write(line)
+
+
+async def connect_chat(host, port, path):
+    reader, writer = await asyncio.open_connection(host, port)
+    current_time = datetime.datetime.now().strftime("[%d.%m.%y %H:%M]")
+    await log(f'{current_time} Connection established\n', path)
+    while True:
+        raw_line = await reader.readline()
+        current_time = datetime.datetime.now().strftime('[%d.%m.%y %H:%M]')
+        line = f'{current_time} {raw_line.decode()}'
+        print(current_time, line)
+        await log(line, path)
 
 
 if __name__ == '__main__':
-    asyncio.run(connect_chat())
+    parser = argparse.ArgumentParser(description='async chat connection')
+    parser.add_argument(
+        '-H', '--host',
+        help='ip or link to host'
+    )
+    parser.add_argument(
+        '-p', '--port',
+        help='port for connnection',
+        type=int
+    )
+    parser.add_argument(
+        '-l', '--log_path',
+        help='path to file for saving history',
+        default=None
+    )
+    args = parser.parse_args()
+    asyncio.run(connect_chat(args.host, args.port, args.log_path))
