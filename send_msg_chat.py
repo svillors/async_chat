@@ -8,6 +8,11 @@ logging.basicConfig(level=logging.DEBUG, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 
+def escape(string):
+    string.replace('\n', '\\n')
+    return string
+
+
 async def log_msg(reader):
     raw_text = await reader.readline()
     text = raw_text.decode()
@@ -24,7 +29,7 @@ async def send_message(host, port, token, msg):
     if json.loads(response) is None:
         logger.error('Unknown token. Check it or register again.')
         return
-    writer.write(f'{msg}\n\n'.encode())
+    writer.write(f'{escape(msg)}\n\n'.encode())
     await writer.drain()
     await log_msg(reader)
 
