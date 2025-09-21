@@ -2,14 +2,7 @@ import argparse
 import asyncio
 import datetime
 
-import aiofiles
-
-
-async def log(line, path):
-    if path is None:
-        return
-    async with aiofiles.open(path, 'a') as f:
-        await f.write(line)
+from utils import log
 
 
 async def connect_chat(host, port, path):
