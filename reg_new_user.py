@@ -7,18 +7,22 @@ from utils import log
 
 async def reg_user(host, port, nickname):
     reader, writer = await asyncio.open_connection(host, port)
-    writer.write(b'\n')
-    await writer.drain()
-    writer.write(f'{nickname}\n'.encode())
-    await writer.drain()
-    while True:
-        raw_line = await reader.readline()
-        line = raw_line.decode().strip()
-        if line.startswith('{') and line.endswith('}'):
-            response = json.loads(line)
-            break
-    await log(response, './your_token.txt')
-    print(response)
+    try:
+        writer.write(b'\n')
+        await writer.drain()
+        writer.write(f'{nickname}\n'.encode())
+        await writer.drain()
+        while True:
+            raw_line = await reader.readline()
+            line = raw_line.decode().strip()
+            if line.startswith('{') and line.endswith('}'):
+                response = json.loads(line)
+                break
+        await log(response, './your_token.txt')
+        print(response)
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 
 if __name__ == "__main__":

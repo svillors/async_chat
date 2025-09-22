@@ -7,14 +7,18 @@ from utils import log
 
 async def connect_chat(host, port, path):
     reader, writer = await asyncio.open_connection(host, port)
-    current_time = datetime.datetime.now().strftime("[%d.%m.%y %H:%M]")
-    await log(f'{current_time} Connection established\n', path)
-    while True:
-        raw_line = await reader.readline()
-        current_time = datetime.datetime.now().strftime('[%d.%m.%y %H:%M]')
-        line = f'{current_time} {raw_line.decode()}'
-        print(current_time, line)
-        await log(line, path)
+    try:
+        current_time = datetime.datetime.now().strftime("[%d.%m.%y %H:%M]")
+        await log(f'{current_time} Connection established\n', path)
+        while True:
+            raw_line = await reader.readline()
+            current_time = datetime.datetime.now().strftime('[%d.%m.%y %H:%M]')
+            line = f'{current_time} {raw_line.decode()}'
+            print(current_time, line)
+            await log(line, path)
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 
 if __name__ == '__main__':

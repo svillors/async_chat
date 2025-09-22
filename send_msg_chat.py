@@ -22,16 +22,20 @@ async def log_msg(reader):
 
 async def send_message(host, port, token, msg):
     reader, writer = await asyncio.open_connection(host, port)
-    await log_msg(reader)
-    writer.write(f'{token}\n'.encode())
-    await writer.drain()
-    response = await log_msg(reader)
-    if json.loads(response) is None:
-        logger.error('Unknown token. Check it or register again.')
-        return
-    writer.write(f'{escape(msg)}\n\n'.encode())
-    await writer.drain()
-    await log_msg(reader)
+    try:
+        await log_msg(reader)
+        writer.write(f'{token}\n'.encode())
+        await writer.drain()
+        response = await log_msg(reader)
+        if json.loads(response) is None:
+            logger.error('Unknown token. Check it or register again.')
+            return
+        writer.write(f'{escape(msg)}\n\n'.encode())
+        await writer.drain()
+        await log_msg(reader)
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 
 if __name__ == '__main__':
