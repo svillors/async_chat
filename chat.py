@@ -1,9 +1,32 @@
 import argparse
 import asyncio
+import json
 
 import aiofiles
 
 import gui
+
+
+async def authorize(host, port, token):
+    reader, writer = await asyncio.open_connection(host, port)
+    await reader.readline()
+
+    writer.write(f'{token}\n'.encode())
+    await writer.drain()
+
+    raw_text = await reader.readline()
+    text = raw_text.decode()
+    response = json.loads(text)
+
+    if response is None:
+        return
+    return (response, reader, writer)
+
+
+async def enter_chat(host, port, token):
+    if token:
+        response, reader, writer = await authorize(host, port, token)
+        print(response)
 
 
 async def load_history(path, messages_queue):
@@ -63,6 +86,7 @@ async def main():
     parser.add_argument(
         '-t', '--token',
         help='user token',
+        default=None
     )
     parser.add_argument(
         '-m', '--message',
@@ -83,7 +107,7 @@ async def main():
         gui.draw(messages_queue, sending_queue, status_updates_queue))
 
     await load_history(args.path, messages_queue)
-
+    await enter_chat(args.host, 5050, args.token)
     read_task = asyncio.create_task(
         read_msgs(args.host, args.port, messages_queue, file_write_queue))
     save_task = asyncio.create_task(save_msg(args.path, file_write_queue))
