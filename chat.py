@@ -7,6 +7,11 @@ import aiofiles
 import gui
 
 
+def escape(string):
+    string.replace('\n', '\\n')
+    return string
+
+
 async def authorize(host, port, token):
     reader, writer = await asyncio.open_connection(host, port)
     await reader.readline()
@@ -20,13 +25,22 @@ async def authorize(host, port, token):
 
     if response is None:
         return
-    return (response, reader, writer)
+    return (reader, writer)
 
 
 async def enter_chat(host, port, token):
     if token:
-        response, reader, writer = await authorize(host, port, token)
-        print(response)
+        reader, writer = await authorize(host, port, token)
+        return (reader, writer)
+
+
+async def send_message(host, port, token, sending_queue):
+    reader, writer = await enter_chat(host, port, token)
+    while True:
+        message = await sending_queue.get()
+        writer.write(f'{escape(message)}\n\n'.encode())
+        await writer.drain()
+        sending_queue.task_done()
 
 
 async def load_history(path, messages_queue):
@@ -57,12 +71,6 @@ async def read_msgs(host, port, messages_queue, save_queue):
     finally:
         writer.close()
         await writer.wait_closed()
-
-
-async def send_message(sending_queue):
-    while True:
-        message = await sending_queue.get()
-        print(message)
 
 
 async def main():
@@ -107,11 +115,12 @@ async def main():
         gui.draw(messages_queue, sending_queue, status_updates_queue))
 
     await load_history(args.path, messages_queue)
-    await enter_chat(args.host, 5050, args.token)
+
+    send_task = asyncio.create_task(
+        send_message(args.host, 5050, args.token, sending_queue))
     read_task = asyncio.create_task(
         read_msgs(args.host, args.port, messages_queue, file_write_queue))
     save_task = asyncio.create_task(save_msg(args.path, file_write_queue))
-    send_task = asyncio.create_task(send_message(sending_queue))
 
     await asyncio.gather(gui_task, read_task, save_task, send_task)
 
