@@ -36,6 +36,12 @@ async def read_msgs(host, port, messages_queue, save_queue):
         await writer.wait_closed()
 
 
+async def send_message(sending_queue):
+    while True:
+        message = await sending_queue.get()
+        print(message)
+
+
 async def main():
     parser = argparse.ArgumentParser(description='chat')
     parser.add_argument(
@@ -81,8 +87,9 @@ async def main():
     read_task = asyncio.create_task(
         read_msgs(args.host, args.port, messages_queue, file_write_queue))
     save_task = asyncio.create_task(save_msg(args.path, file_write_queue))
+    send_task = asyncio.create_task(send_message(sending_queue))
 
-    await asyncio.gather(gui_task, read_task, save_task)
+    await asyncio.gather(gui_task, read_task, save_task, send_task)
 
 
 if __name__ == "__main__":
