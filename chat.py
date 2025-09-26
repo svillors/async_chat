@@ -1,15 +1,36 @@
 import argparse
 import asyncio
+
+import aiofiles
+
 import gui
 
 
-async def read_msgs(host, port, queue):
+async def load_history(path, messages_queue):
+    try:
+        async with aiofiles.open(path, 'r') as f:
+            async for line in f:
+                await messages_queue.put(line.strip())
+    except FileNotFoundError:
+        return
+
+
+async def save_msg(path, save_queue):
+    async with aiofiles.open(path, 'a') as f:
+        while True:
+            line = await save_queue.get()
+            await f.write(line)
+            await f.flush()
+
+
+async def read_msgs(host, port, messages_queue, save_queue):
     reader, writer = await asyncio.open_connection(host, port)
     try:
         while True:
             raw_line = await reader.readline()
-            line = raw_line.decode().strip()
-            queue.put_nowait(line)
+            line = raw_line.decode()
+            await messages_queue.put(line.strip())
+            await save_queue.put(line)
     finally:
         writer.close()
         await writer.wait_closed()
@@ -29,6 +50,11 @@ async def main():
         default=5000
     )
     parser.add_argument(
+        '-P', '--path',
+        help='path to chat history file',
+        default='chat.history'
+    )
+    parser.add_argument(
         '-t', '--token',
         help='user token',
     )
@@ -45,35 +71,19 @@ async def main():
     messages_queue = asyncio.Queue()
     sending_queue = asyncio.Queue()
     status_updates_queue = asyncio.Queue()
+    file_write_queue = asyncio.Queue()
 
-    await asyncio.gather(
-        gui.draw(messages_queue, sending_queue, status_updates_queue),
-        read_msgs(args.host, args.port, messages_queue)
-    )
+    gui_task = asyncio.create_task(
+        gui.draw(messages_queue, sending_queue, status_updates_queue))
+
+    await load_history(args.path, messages_queue)
+
+    read_task = asyncio.create_task(
+        read_msgs(args.host, args.port, messages_queue, file_write_queue))
+    save_task = asyncio.create_task(save_msg(args.path, file_write_queue))
+
+    await asyncio.gather(gui_task, read_task, save_task)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='chat')
-    parser.add_argument(
-        '-H', '--host',
-        help='ip or link to host'
-    )
-    parser.add_argument(
-        '-p', '--port',
-        help='port for connnection',
-        type=int
-    )
-    parser.add_argument(
-        '-t', '--token',
-        help='user token',
-    )
-    parser.add_argument(
-        '-m', '--message',
-        help='message to send',
-    )
-    parser.add_argument(
-        '-n', '--nickname',
-        help='user token',
-    )
-    args = parser.parse_args()
     asyncio.run(main())
