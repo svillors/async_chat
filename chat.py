@@ -1,10 +1,15 @@
 import argparse
 import asyncio
 import json
+from tkinter import messagebox
 
 import aiofiles
 
 import gui
+
+
+class InvalidToken(Exception):
+    pass
 
 
 def escape(string):
@@ -24,7 +29,11 @@ async def authorize(host, port, token):
     response = json.loads(text)
 
     if response is None:
-        return
+        messagebox.showerror(
+            'Неправильный токен',
+            'Проверьте токен, сервер его не узнал'
+        )
+        raise InvalidToken
     return (reader, writer)
 
 
