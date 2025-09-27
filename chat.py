@@ -34,17 +34,19 @@ async def authorize(host, port, token):
             'Проверьте токен, сервер его не узнал'
         )
         raise InvalidToken
-    return (reader, writer)
+    return (response, reader, writer)
 
 
 async def enter_chat(host, port, token):
     if token:
-        reader, writer = await authorize(host, port, token)
-        return (reader, writer)
+        response, reader, writer = await authorize(host, port, token)
+        return (response, reader, writer)
 
 
-async def send_message(host, port, token, sending_queue):
-    reader, writer = await enter_chat(host, port, token)
+async def send_message(host, port, token, sending_queue, status_queue):
+    response, reader, writer = await enter_chat(host, port, token)
+    await status_queue.put(gui.SendingConnectionStateChanged.ESTABLISHED)
+    await status_queue.put(gui.NicknameReceived(response.get('nickname')))
     while True:
         message = await sending_queue.get()
         writer.write(f'{escape(message)}\n\n'.encode())
@@ -69,8 +71,9 @@ async def save_msg(path, save_queue):
             await f.flush()
 
 
-async def read_msgs(host, port, messages_queue, save_queue):
+async def read_msgs(host, port, messages_queue, save_queue, status_queue):
     reader, writer = await asyncio.open_connection(host, port)
+    await status_queue.put(gui.ReadConnectionStateChanged.ESTABLISHED)
     try:
         while True:
             raw_line = await reader.readline()
@@ -126,9 +129,19 @@ async def main():
     await load_history(args.path, messages_queue)
 
     send_task = asyncio.create_task(
-        send_message(args.host, 5050, args.token, sending_queue))
+        send_message(
+            args.host, 5050,
+            args.token, sending_queue,
+            status_updates_queue
+        )
+    )
     read_task = asyncio.create_task(
-        read_msgs(args.host, args.port, messages_queue, file_write_queue))
+        read_msgs(
+            args.host, args.port,
+            messages_queue, file_write_queue,
+            status_updates_queue
+        )
+    )
     save_task = asyncio.create_task(save_msg(args.path, file_write_queue))
 
     await asyncio.gather(gui_task, read_task, save_task, send_task)
