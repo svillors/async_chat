@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 from time import time
-from tkinter import messagebox
+from tkinter import messagebox, TclError
 
 import aiofiles
 import anyio
@@ -194,4 +194,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except BaseExceptionGroup:
+        pass
