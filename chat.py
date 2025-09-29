@@ -6,6 +6,7 @@ from time import time
 from tkinter import messagebox
 
 import aiofiles
+import anyio
 from async_timeout import timeout
 
 import gui
@@ -28,11 +29,11 @@ async def watch_for_connection(watchdog_queue):
     while True:
         try:
             async with timeout(1):
-                new_action = await watchdog_queue.get()
+                new_action = await watchdog_queue.get()    
                 logger.info(f'[{time()}] {new_action}')
                 watchdog_queue.task_done()
         except TimeoutError:
-            logger.info('1s timeout is elapsed')
+            raise ConnectionError
 
 
 async def authorize(host, port, token):
@@ -106,6 +107,28 @@ async def read_msgs(host, port, messages_queue, save_queue, status_queue, watchd
         await writer.wait_closed()
 
 
+async def handle_commection(host, port_read, port_write, token, messages_queue, save_queue, send_queue, status_queue, watchdog_queue):
+    while True:
+        try:
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(
+                    send_message,
+                    host, port_write,
+                    token, send_queue,
+                    status_queue, watchdog_queue
+                )
+                tg.start_soon(
+                    read_msgs,
+                    host, port_read,
+                    messages_queue, save_queue,
+                    status_queue, watchdog_queue
+                )
+                tg.start_soon(watch_for_connection, watchdog_queue)
+        except* ConnectionError:
+            await status_queue.put(gui.ReadConnectionStateChanged.CLOSED)
+            await status_queue.put(gui.SendingConnectionStateChanged.CLOSED)
+
+
 async def main():
     parser = argparse.ArgumentParser(description='chat')
     parser.add_argument(
@@ -114,10 +137,16 @@ async def main():
         default='minechat.dvmn.org'
     )
     parser.add_argument(
-        '-p', '--port',
-        help='port for connnection',
+        '-r', '--port-read',
+        help='port for read connnection',
         type=int,
         default=5000
+    )
+    parser.add_argument(
+        '-w', '--port-write',
+        help='port for write connnection',
+        type=int,
+        default=5050
     )
     parser.add_argument(
         '-P', '--path',
@@ -128,10 +157,6 @@ async def main():
         '-t', '--token',
         help='user token',
         default='657a5480-96d1-11f0-a5a4-0242ac110003'
-    )
-    parser.add_argument(
-        '-m', '--message',
-        help='message to send',
     )
     parser.add_argument(
         '-n', '--nickname',
@@ -150,28 +175,16 @@ async def main():
 
     await load_history(args.path, messages_queue)
 
-    watchdog_task = asyncio.create_task(watch_for_connection(watchdog_queue))
-
-    send_task = asyncio.create_task(
-        send_message(
-            args.host, 5050,
-            args.token, sending_queue,
-            status_updates_queue, watchdog_queue
-        )
-    )
-    read_task = asyncio.create_task(
-        read_msgs(
-            args.host, args.port,
-            messages_queue, file_write_queue,
-            status_updates_queue, watchdog_queue
-        )
-    )
+    connection_task = asyncio.create_task(handle_commection(
+        args.host, args.port_read, args.port_write,
+        args.token, messages_queue, file_write_queue,
+        sending_queue, status_updates_queue, watchdog_queue
+    ))
     save_task = asyncio.create_task(save_msg(args.path, file_write_queue))
 
     await asyncio.gather(
-        gui_task, read_task,
-        save_task, send_task,
-        watchdog_task
+        gui_task, connection_task,
+        save_task
     )
 
 
