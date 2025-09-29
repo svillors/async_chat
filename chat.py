@@ -179,22 +179,18 @@ async def main():
     file_write_queue = asyncio.Queue()
     watchdog_queue = asyncio.Queue()
 
-    gui_task = asyncio.create_task(
-        gui.draw(messages_queue, sending_queue, status_updates_queue))
-
-    await load_history(args.path, messages_queue)
-
-    connection_task = asyncio.create_task(handle_commection(
-        args.host, args.port_read, args.port_write,
-        args.token, messages_queue, file_write_queue,
-        sending_queue, status_updates_queue, watchdog_queue
-    ))
-    save_task = asyncio.create_task(save_msg(args.path, file_write_queue))
-
-    await asyncio.gather(
-        gui_task, connection_task,
-        save_task
-    )
+    async with anyio.create_task_group() as tk:
+        tk.start_soon(
+            gui.draw, messages_queue,
+            sending_queue, status_updates_queue
+        )
+        await load_history(args.path, messages_queue)
+        tk.start_soon(
+            handle_commection, args.host, args.port_read, args.port_write,
+            args.token, messages_queue, file_write_queue,
+            sending_queue, status_updates_queue, watchdog_queue
+        )
+        tk.start_soon(save_msg, args.path, file_write_queue)
 
 
 if __name__ == "__main__":
