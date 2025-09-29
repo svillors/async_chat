@@ -6,6 +6,7 @@ from time import time
 from tkinter import messagebox
 
 import aiofiles
+from async_timeout import timeout
 
 import gui
 
@@ -25,9 +26,13 @@ def escape(string):
 
 async def watch_for_connection(watchdog_queue):
     while True:
-        new_action = await watchdog_queue.get()
-        logger.info(f'[{time()}] {new_action}')
-        watchdog_queue.task_done()
+        try:
+            async with timeout(1):
+                new_action = await watchdog_queue.get()
+                logger.info(f'[{time()}] {new_action}')
+                watchdog_queue.task_done()
+        except TimeoutError:
+            logger.info('1s timeout is elapsed')
 
 
 async def authorize(host, port, token):
