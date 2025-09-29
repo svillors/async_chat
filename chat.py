@@ -25,15 +25,24 @@ def escape(string):
     return string
 
 
-async def watch_for_connection(watchdog_queue):
+async def watch_for_connection(watchdog_queue, send_queue):
     while True:
         try:
-            async with timeout(1):
-                new_action = await watchdog_queue.get()    
+            async with timeout(5):
+                new_action = await watchdog_queue.get()
                 logger.info(f'[{time()}] {new_action}')
                 watchdog_queue.task_done()
         except TimeoutError:
-            raise ConnectionError
+            await send_queue.put('')
+            try:
+                async with timeout(1):
+                    while True:
+                        new_action = await watchdog_queue.get()
+                        logger.info(f'[{time()}] {new_action}')
+                        watchdog_queue.task_done()
+                        break
+            except TimeoutError:
+                raise ConnectionError
 
 
 async def authorize(host, port, token):
@@ -123,7 +132,7 @@ async def handle_commection(host, port_read, port_write, token, messages_queue, 
                     messages_queue, save_queue,
                     status_queue, watchdog_queue
                 )
-                tg.start_soon(watch_for_connection, watchdog_queue)
+                tg.start_soon(watch_for_connection, watchdog_queue, send_queue)
         except* ConnectionError:
             await status_queue.put(gui.ReadConnectionStateChanged.CLOSED)
             await status_queue.put(gui.SendingConnectionStateChanged.CLOSED)
