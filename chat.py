@@ -163,10 +163,6 @@ async def main():
         '-t', '--token',
         help='user token',
     )
-    parser.add_argument(
-        '-n', '--nickname',
-        help='user token',
-    )
     args = parser.parse_args()
 
     messages_queue = asyncio.Queue()
