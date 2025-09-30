@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 from time import time
-from tkinter import messagebox, TclError
+from tkinter import messagebox
 
 import aiofiles
 import anyio
@@ -143,19 +143,16 @@ async def main():
     parser.add_argument(
         '-H', '--host',
         help='ip or link to host',
-        default='minechat.dvmn.org'
     )
     parser.add_argument(
         '-r', '--port-read',
         help='port for read connnection',
         type=int,
-        default=5000
     )
     parser.add_argument(
         '-w', '--port-write',
         help='port for write connnection',
         type=int,
-        default=5050
     )
     parser.add_argument(
         '-P', '--path',
@@ -165,7 +162,6 @@ async def main():
     parser.add_argument(
         '-t', '--token',
         help='user token',
-        default='657a5480-96d1-11f0-a5a4-0242ac110003'
     )
     parser.add_argument(
         '-n', '--nickname',
