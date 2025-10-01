@@ -12,7 +12,6 @@ from async_timeout import timeout
 import gui
 
 
-logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger()
 
 
@@ -187,6 +186,7 @@ async def main():
 
 if __name__ == "__main__":
     try:
+        logging.basicConfig(level=logging.INFO, format='%(message)s')
         asyncio.run(main())
     except BaseExceptionGroup:
         pass
