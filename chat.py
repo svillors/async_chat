@@ -71,16 +71,20 @@ async def enter_chat(host, port, token):
 
 
 async def send_message(host, port, token, sending_queue, status_queue, watchdog_queue):
-    response, reader, writer = await enter_chat(host, port, token)
-    await status_queue.put(gui.SendingConnectionStateChanged.ESTABLISHED)
-    await status_queue.put(gui.NicknameReceived(response.get('nickname')))
-    await watchdog_queue.put('Authorization done')
-    while True:
-        message = await sending_queue.get()
-        writer.write(f'{escape(message)}\n\n'.encode())
-        await writer.drain()
-        await watchdog_queue.put('Message sent')
-        sending_queue.task_done()
+    try:
+        response, reader, writer = await enter_chat(host, port, token)
+        await status_queue.put(gui.SendingConnectionStateChanged.ESTABLISHED)
+        await status_queue.put(gui.NicknameReceived(response.get('nickname')))
+        await watchdog_queue.put('Authorization done')
+        while True:
+            message = await sending_queue.get()
+            writer.write(f'{escape(message)}\n\n'.encode())
+            await writer.drain()
+            await watchdog_queue.put('Message sent')
+            sending_queue.task_done()
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 
 async def load_history(path, messages_queue):
