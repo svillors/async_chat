@@ -115,7 +115,7 @@ async def read_msgs(host, port, messages_queue, save_queue, status_queue, watchd
         await writer.wait_closed()
 
 
-async def handle_commection(host, port_read, port_write, token, messages_queue, save_queue, send_queue, status_queue, watchdog_queue):
+async def handle_connection(host, port_read, port_write, token, messages_queue, save_queue, send_queue, status_queue, watchdog_queue):
     while True:
         try:
             async with anyio.create_task_group() as tg:
@@ -177,7 +177,7 @@ async def main():
         )
         await load_history(args.path, messages_queue)
         tk.start_soon(
-            handle_commection, args.host, args.port_read, args.port_write,
+            handle_connection, args.host, args.port_read, args.port_write,
             args.token, messages_queue, file_write_queue,
             sending_queue, status_updates_queue, watchdog_queue
         )
